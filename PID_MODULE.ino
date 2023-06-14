@@ -1,134 +1,195 @@
+#include "src/leitura_adc_lib/leitura_adc_lib.hpp"
+#include "src/leitura_pulsos_lib/leitura_pulsos_lib.hpp"
+#include "src/leitura_pwm_lib/leitura_pwm_lib.hpp"
+#include "src/acionamento_pwm_lib/acionamento_pwm_lib.hpp"
 #include "src/PID_lib/PID_lib.hpp"
+#include "BluetoothSerial.h"
 
 // Pinos
-#define PIN_MOTOR1 25
-#define PIN_MOTOR2 33
-#define PIN_SENSOR_ANALOGICO 2
-#define PIN_REFERENCIA_ANALOGICO 4
+#define PIN_Y 23
+#define PIN_H 2
+#define PIN_R 4
 
-// PWM
-#define RESOLUCAO_PWM = 10;
-#define CANAL_PWM = 0;
-const int MIN_PWM = 0;
-const int MAX_PWM = pow(2, RESOLUCAO_PWM) - 1;
-int FREQUENCIA_PWM = 5000;
+//BLUETOOTH
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+#endif
+BluetoothSerial SerialBT;
 
-// Sensor
-double VALOR_SENSOR = 0;
+//VARIAVEIS C PWM
+double COEFICIENTE_C = 1;
+const int CANAL_C = 0;
+double FREQUENCIA_C = 1000;
+double RESOLUCAO_C = 10;
 
-// Sensor Analogico
-#define RESOLUCAO_ADC 12
-double SINAL_A0_MAX = pow(2, RESOLUCAO_ADC) - 1; // bits
-double SINAL_A0_MIN = 0;                         // bits
+//VARIAVEIS H
+double COEFICIENTE_H = 1;
+int MODO_H = 0;
+volatile double VALOR_H = 0;
 
-// Sensor Pulsos
-double COEFICIENTE_PARA_RPM = 1;
+//VARIAVEIS R
+double COEFICIENTE_R = 1;
+int MODO_R = 0;
+volatile double VALOR_R = 0;
 
-// Parametros Controlador
-double KP = 0;
-double KD = 0;
-double KI = 0;
-double N = 0;
-double TA = 0.1; // segundos
-double UK_MIN = 0;
-double UK_MAX = 1;
+//VARIAVEIS C
+double KP = 1;
+double KI = 1;
+double KD = 1;
+double N = 1;
+double TA = 20;
+double MIN_UK = 0;
+double MAX_UK = 0;
+double VALOR_UK = MIN_UK;
 
-// Controlador PID
-ControladorPID CC(KP, KD, KI, N, TA, UK_MIN, UK_MAX);
+//SAIDA PWM
+AcionamentoPWM SAIDA_PWM(PIN_Y, COEFICIENTE_C, CANAL_C, FREQUENCIA_C, 10);
 
-// Referencia
-double REFERENCIA = 0;
+//SENSORES
+LeituraADC SENSOR_ADC(PIN_H, COEFICIENTE_H);
+LeituraPulsos SENSOR_PULSOS(PIN_H, COEFICIENTE_H);
+LeituraPWM SENSOR_PWM(PIN_H, COEFICIENTE_H);
 
-// Referencia Analogico
-#define RESOLUCAO_REFERENCIA 12
-double SINAL_REFERENCIA_MIN = 0;
-double SINAL_REFERENCIA_MAX = pow(2, RESOLUCAO_REFERENCIA) - 1; // bits
+//REFERENCIAS
+LeituraADC REFERENCIA_ADC(PIN_R, COEFICIENTE_R);
+LeituraPWM REFERENCIA_PWM(PIN_R, COEFICIENTE_R);
 
-// Variaveis Globais
+//CONTROLADOR
+ControladorPID CONTROLADOR_PID(KP, KI, KD, N, TA, MIN_UK, MAX_UK);
 
-// Funcoes
-double leitura_sensor_analogico();
-double leitura_sensor_pulsos();
-double leitura_referencia_analogico();
-void comuta_acao_controle(double valor);
-void altera_parametros_bt();
+//TIMER
+const int CANAL_TIMER = 3;
+hw_timer_t * TIMER_CALCULOS = NULL;
+unsigned long TICKS_TIMER = 1000000 * TA;
 
-void imprimi_informacoes(double distanciaAtual, double sinalControle, double referencia, bool monitorSerial);
+//FUNCOES
+void leitura_H();
+void leitura_R();
+void altera_modo_H(int novoModo);
+void altera_modo_R(int novoModo);
+void envia_parametros_bluetooth();
+void recebe_parametros_bluetooth();
+
+
+void IRAM_ATTR calculos(){
+  // leitura_H();
+  // leitura_R();
+
+  // VALOR_UK = CONTROLADOR_PID.calcula_acao_controle(VALOR_R, VALOR_H);
+  // SAIDA_PWM.comuta_valor(1);
+
+  envia_parametros_bluetooth();
+}
+
 
 void setup()
 {
-    // SERIAL
-    Serial.begin(500000);
+  // SERIAL
+  Serial.begin(115200);
+  SerialBT.begin("PID_MODULE");
 
-    // PINOS
-    pinMode(PIN_MOTOR2, OUTPUT);
-    digitalWrite(PIN_MOTOR2, HIGH);
+  //TIMER
+  TIMER_CALCULOS = timerBegin(CANAL_TIMER, 240, true);
+  timerAttachInterrupt(TIMER_CALCULOS, &calculos, true);
+  timerAlarmWrite(TIMER_CALCULOS, TICKS_TIMER, true); 
+  timerAlarmEnable(TIMER_CALCULOS);   
 
-    // PWM
-    ledcAttachPin(PIN_MOTOR1, CANAL_PWM);
-    ledcSetup(CANAL_PWM, FREQUENCIA_PWM, RESOLUCAO_PWM);
-    comuta_acao_controle(UK_MIN);
+  // altera_modo_H();
+  altera_modo_R(MODO_R);
 
-    // SENSOR
-
-    delay(500);
+  delay(500);
 }
 
 void loop()
 {
-    if (0) // Leitura BT
-        altera_parametros_bt();
+  recebe_parametros_bluetooth();
 
-    VALOR_SENSOR = leitura_sensor_analogico();
-
-    double sinalControle = CC.Calcula_Acao_Controle(REFERENCIA, VALOR_SENSOR);
-
-    comuta_acao_controle(sinalControle);
-
-    // imprimi_informacoes(distanciaAtual, 100 * sinalControle, REFERENCIA, false);
+  delay(100);
 }
 
-double leitura_sensor_analogico()
+void leitura_H()
 {
-    double leitura = (analogRead(PIN_SENSOR_ANALOGICO);
-    leitura -= SINAL_A0_MIN;
-    leitura /= SINAL_A0_MAX;
-
-    return leitura;
+  switch (MODO_H)
+  {
+    case 0:
+      VALOR_H = SENSOR_ADC.realiza_leitura();
+      break;
+    case 1:
+      VALOR_H = SENSOR_PULSOS.realiza_leitura();
+      break;
+    case 2:
+      VALOR_H = SENSOR_PWM.realiza_leitura();
+      break;
+    default:
+        VALOR_H = -127;
+  }
 }
 
-double leitura_referencia_analogico()
+void leitura_R()
 {
-    double leitura = (analogRead(PIN_REFERENCIA_ANALOGICO);
-    leitura -= SINAL_REFERENCIA_MIN;
-    leitura /= SINAL_REFERENCIA_MAX;
-
-    return leitura;
+  switch (MODO_R)
+  {
+    case 0:
+      VALOR_R = REFERENCIA_ADC.realiza_leitura();
+      break;
+    case 1:
+      VALOR_R = REFERENCIA_PWM.realiza_leitura();
+      break;
+    default:
+      VALOR_R = -127;
+  }
 }
 
-void comuta_acao_controle(double valor)
+void altera_modo_R(int novoModo)
 {
-    valor = MAX_PWM * (1 - valor);
-    ledcWrite(CANAL_PWM, (int)valor);
+  MODO_R = novoModo;
+  switch (MODO_R)
+  {
+    case 0:
+      REFERENCIA_ADC.prepara_porta();
+      break;
+    case 1:
+      REFERENCIA_PWM.prepara_porta([]{REFERENCIA_PWM.calcula_valor();});
+      break;
+    default:
+      //erro
+      Serial.println("Erro");
+  }
 }
 
-void altera_parametros_bt()
+void altera_modo_H(int novoModo)
 {
+  MODO_H = novoModo;
+  switch (MODO_H)
+  {
+    case 0:
+      SENSOR_ADC.prepara_porta();
+      break;
+    case 1:
+      SENSOR_PULSOS.prepara_porta([]{SENSOR_PULSOS.soma_pulsos();});
+      break;
+    case 2:
+      SAIDA_PWM.prepara_porta();
+      break;
+    default:
+      //erro
+      Serial.println("Erro");
+  }
 }
 
-void imprimi_informacoes(double distanciaAtual, double sinalControle, double referencia, bool monitorSerial)
+void envia_parametros_bluetooth()
 {
-    Serial.print("Max ");
-    Serial.print(DISTANCIA_MAX);
-    Serial.print(" Min ");
-    Serial.print(DISTANCIA_MIN);
-    Serial.print(" Referenncia ");
-    Serial.print(referencia);
-    Serial.print(" Atual ");
-    Serial.print(distanciaAtual);
-    Serial.print(" Sinalcontrole ");
-    Serial.print(sinalControle);
-    Serial.print(" TA ");
-    Serial.print(micros() - T_PASSADO);
-    Serial.println("");
+  SerialBT.println("PARAMETROS");
+  SerialBT.println(String(COEFICIENTE_C) + " " + String(COEFICIENTE_H) + " " + String(COEFICIENTE_R));
+  SerialBT.println(String(MODO_H) + " " + String(MODO_R));
+  SerialBT.println(String(KP) + " " + String(KI) + " " + String(KD) + " " + String(N) + " " + String(TA) + " " + String(MIN_UK) + " " + String(MAX_UK));
+  SerialBT.println(String(FREQUENCIA_C));
+}
+
+void recebe_parametros_bluetooth()
+{
+  if (SerialBT.available()) {
+    String informacao = SerialBT.readString();
+    Serial.println(informacao);
+  }
 }

@@ -5,12 +5,9 @@
 #ifndef PID_LIB_HPP
 #define PID_LIB_HPP
 
-#if __linux__
-#include <iostream>
-#include <time.h>
-#else
 #include <Arduino.h>
-#endif
+
+#define _ponto double
 
 struct ControladorPID
 {
@@ -27,19 +24,11 @@ struct ControladorPID
     _ponto Uk[3] = {0, 0, 0}; // acao de controle
     _ponto Yk[2] = {0, 0};    // Saida
     // variaveis auxiliares
-    size_t limiteIteracoesAcaoControle = 1;
-    bool calcularTempoExecucao = false;
     unsigned long tExecucao = 0; // ms
-    bool imprimirParametros = false;
 
-    ControladorPID() = delete;
-    ControladorPID(_ponto tA, _ponto min_uK, _ponto max_uK);
     ControladorPID(_ponto kP, _ponto kD, _ponto tI, _ponto N, _ponto tA, _ponto min_uK, _ponto max_uK);
-    ControladorPID(const ControladorPID &c);
-    ~ControladorPID();
-
-    void Imprimir_Parametros();
-    _ponto Calcula_Acao_Controle(_ponto referencia, _ponto saida);
+    void imprimir_parametros();
+    _ponto calcula_acao_controle(_ponto referencia, _ponto saida);
 };
 
 #endif // PID_LIB_HPP
