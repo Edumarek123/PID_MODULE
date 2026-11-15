@@ -1,27 +1,63 @@
+<div align="center">
+
 # PID Module
 
-A microcontroller-oriented project focused on implementing a Proportional–Integral–Derivative (PID) controller.
+**An embedded control project focused on Proportional–Integral–Derivative control.**
+
+![Platform](https://img.shields.io/badge/platform-microcontroller-00979D?logo=arduino&logoColor=white)
+![Language](https://img.shields.io/badge/language-C%2B%2B-00599C?logo=cplusplus&logoColor=white)
+![Status](https://img.shields.io/badge/status-prototype-lightgrey)
+
+</div>
 
 ## Overview
 
-The repository contains an embedded-control project intended to provide a reusable PID module for industrial or experimental control applications.
+PID_MODULE is an embedded project centered on a PID controller. A PID controller computes a control action from the current error and its accumulated and changing behavior over time.
 
-## Technologies
+The repository contains an Arduino sketch and supporting source code intended for a microcontroller-oriented implementation.
 
-- Embedded C/C++
-- Arduino-compatible source files
+## Control model
+
+A classical PID controller combines three terms:
+
+- **Proportional (P):** responds to the current error.
+- **Integral (I):** accounts for accumulated error.
+- **Derivative (D):** responds to the rate of change of error.
+
+The controller parameters must be tuned for the plant, sensor, actuator, sampling interval, and operating conditions.
 
 ## Repository contents
 
-The project includes an Arduino sketch and supporting source files under `src/`.
+```text
+.
+├── PID_MODULE.ino
+├── PID_MODULE/
+├── src/
+└── README.md
+```
 
-## Concepts
+## Getting started
 
-- Proportional control
-- Integral control
-- Derivative control
-- Embedded control implementation
+### Requirements
 
-## Status
+- Arduino-compatible development environment
+- Compatible microcontroller board
+- Required sensors and actuators for the target control setup
 
-Control-systems study / prototype. Hardware configuration and tuning parameters depend on the target application.
+The exact board, pin mapping, wiring, and library requirements must be confirmed from the sketch and hardware configuration.
+
+### Open the project
+
+Open `PID_MODULE.ino` in the Arduino IDE or a compatible environment. Select the matching board and port after checking the sketch's hardware assumptions.
+
+## Tuning and validation
+
+Do not reuse PID gains blindly between different physical systems. Validate the controller with safe actuator limits, appropriate sampling, and a known plant model or test setup.
+
+## Project status
+
+Embedded control prototype / study project. No universal hardware configuration or validated tuning profile is claimed.
+
+## License
+
+No license file was identified in the repository. Contact the author before redistributing or reusing this project.
