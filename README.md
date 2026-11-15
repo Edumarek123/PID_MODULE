@@ -1,63 +1,99 @@
 <div align="center">
 
-# PID Module
+# PID Module — ESP32 Control Toolkit
 
-**An embedded control project focused on Proportional–Integral–Derivative control.**
+**An embedded control project combining sensor acquisition, PWM actuation, PID logic, and Bluetooth communication.**
 
-![Platform](https://img.shields.io/badge/platform-microcontroller-00979D?logo=arduino&logoColor=white)
-![Language](https://img.shields.io/badge/language-C%2B%2B-00599C?logo=cplusplus&logoColor=white)
-![Status](https://img.shields.io/badge/status-prototype-lightgrey)
+![Platform](https://img.shields.io/badge/platform-ESP32-E7352C?logo=espressif&logoColor=white)
+![Language](https://img.shields.io/badge/language-Arduino%20C%2B%2B-00979D?logo=arduino&logoColor=white)
+![Control](https://img.shields.io/badge/control-PID-6f42c1)
+![Status](https://img.shields.io/badge/status-prototype-orange)
 
 </div>
 
+## Contents
+
+- [Overview](#overview)
+- [System components](#system-components)
+- [Control architecture](#control-architecture)
+- [Hardware interface](#hardware-interface)
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [Important implementation status](#important-implementation-status)
+- [Safety and validation](#safety-and-validation)
+- [License](#license)
+
 ## Overview
 
-PID_MODULE is an embedded project centered on a PID controller. A PID controller computes a control action from the current error and its accumulated and changing behavior over time.
+PID_MODULE is an ESP32-oriented embedded project that brings together input acquisition, PWM output, a PID-controller class, timer-based scheduling, and Bluetooth serial communication.
 
-The repository contains an Arduino sketch and supporting source code intended for a microcontroller-oriented implementation.
+The source includes separate modules for ADC, pulse, PWM, actuator output, and PID calculations. It is a prototype/control framework; the currently committed sketch does not execute a complete closed-loop PID cycle by default.
 
-## Control model
+## System components
 
-A classical PID controller combines three terms:
+| Module | Responsibility |
+|---|---|
+| `leitura_adc_lib` | Analog input acquisition |
+| `leitura_pulsos_lib` | Pulse measurement |
+| `leitura_pwm_lib` | PWM signal measurement |
+| `acionamento_pwm_lib` | PWM output actuation |
+| `PID_lib` | PID control calculation |
+| `BluetoothSerial` | Parameter communication |
 
-- **Proportional (P):** responds to the current error.
-- **Integral (I):** accounts for accumulated error.
-- **Derivative (D):** responds to the rate of change of error.
+## Control architecture
 
-The controller parameters must be tuned for the plant, sensor, actuator, sampling interval, and operating conditions.
-
-## Repository contents
-
-```text
-.
-├── PID_MODULE.ino
-├── PID_MODULE/
-├── src/
-└── README.md
+```mermaid
+flowchart LR
+    A[Reference input] --> C[PID controller]
+    B[Sensor acquisition] --> C
+    C --> D[PWM actuator]
+    D --> E[Physical process]
+    E --> B
+    F[Bluetooth serial] <--> G[Parameter interface]
+    G --> C
 ```
 
-## Getting started
+This is the intended control architecture represented by the available modules. The actual feedback calls are currently commented out in the timer callback.
 
-### Requirements
+## Hardware interface
 
-- Arduino-compatible development environment
-- Compatible microcontroller board
-- Required sensors and actuators for the target control setup
+The sketch defines these ESP32 pins:
 
-The exact board, pin mapping, wiring, and library requirements must be confirmed from the sketch and hardware configuration.
+| Signal | GPIO |
+|---|---:|
+| PWM output `PIN_Y` | 23 |
+| Sensor input `PIN_H` | 2 |
+| Reference input `PIN_R` | 4 |
 
-### Open the project
+Confirm the board, electrical levels, sensor output type, and external circuitry before wiring hardware.
 
-Open `PID_MODULE.ino` in the Arduino IDE or a compatible environment. Select the matching board and port after checking the sketch's hardware assumptions.
+## Requirements
 
-## Tuning and validation
+- ESP32 development board with Bluetooth support
+- Arduino IDE or compatible ESP32 toolchain
+- Sensor and actuator hardware matching the selected input/output modes
+- Libraries and ESP32 Arduino core compatible with the APIs used by the sketch
 
-Do not reuse PID gains blindly between different physical systems. Validate the controller with safe actuator limits, appropriate sampling, and a known plant model or test setup.
+The timer and LEDC APIs in the source are version-sensitive. Check compatibility with the installed ESP32 Arduino core before compiling.
 
-## Project status
+## Setup
 
-Embedded control prototype / study project. No universal hardware configuration or validated tuning profile is claimed.
+1. Clone the repository.
+2. Open `PID_MODULE.ino` in the Arduino IDE.
+3. Install/select ESP32 board support.
+4. Inspect the files under `src/` and verify the hardware connections.
+5. Select the correct board and serial port before compiling and uploading.
+
+## Important implementation status
+
+In the current sketch, the timer callback sends Bluetooth parameters, while the sensor reads, PID calculation, and PWM update are commented out. The main loop currently processes incoming Bluetooth data.
+
+Therefore, do not treat the committed sketch as an active closed-loop PID controller without completing and validating that execution path.
+
+## Safety and validation
+
+Test with actuator power disconnected or safely limited first. Confirm signal ranges, timer behavior, interrupt safety, and output saturation before connecting a physical plant.
 
 ## License
 
-No license file was identified in the repository. Contact the author before redistributing or reusing this project.
+No `LICENSE` file is currently included. Unless a license is added, reuse and redistribution permissions are not granted by this repository.
